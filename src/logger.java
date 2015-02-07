@@ -1,13 +1,17 @@
 import java.io.IOException;
-import java.util.LinkedList;
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.Scanner;
 
 
-public class logger {
+public class logger implements Runnable{
 	public static MessagePasser mp;
 	public static String localname = "logger";
-	public static LinkedList<TimeStampedMessage> logs = new LinkedList<TimeStampedMessage>();
-	
+	public static ArrayList<TimeStampedMessage> logs = new ArrayList<TimeStampedMessage>();
+
+	public logger(){
+		
+	}
 	public static void main(String[] args) throws IOException{
 		String configuration_addr;
 		Scanner scanner = new Scanner(System.in);
@@ -15,7 +19,7 @@ public class logger {
 		configuration_addr = scanner.nextLine();
 
 		mp = new MessagePasser(configuration_addr,localname);
-		Userapplication listener = new Userapplication();
+		logger listener = new logger();
 		new Thread(listener).start();
 		System.out.println("logger start listen");
 		while(true){
@@ -29,16 +33,33 @@ public class logger {
 	public static void printlogs(){
 		System.out.println("current logs:");
 		while( !logs.isEmpty()){
-			TimeStampedMessage t = logs.poll();
-			System.out.println(t.get_src() + "->" + t.get_dest() + " ");
+			TimeStampedMessage t = logs.remove(0);
+			System.out.print(t.get_src() + "->" + t.get_dest() + " ");
+			t.get_timestamp().print_clock();
 		}
 	}
 	public void run() {
 		while(true){
 			if( mp != null){
 				Message recv = mp.receive();
-				logs.add((TimeStampedMessage)recv);
+				if( recv != null){
+					System.out.println("[RECV]	"+recv.get_src() +":"+ recv.get_data().toString());
+					insert((TimeStampedMessage)recv);
+				}
 			}
 		}
+	}
+	public static void insert( TimeStampedMessage recv){
+		int index;
+		TimeStamp r = recv.get_timestamp();
+		for(int i = 0; i < logs.size();i ++){
+			TimeStamp p = logs.get(i).get_timestamp();
+			if(p.compare(r) == 1){
+				logs.add(i, recv);
+				return;
+			}
+		}
+		logs.add(recv);
+		return;
 	}
 }

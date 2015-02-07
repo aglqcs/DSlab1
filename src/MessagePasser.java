@@ -25,6 +25,8 @@ public class MessagePasser {
 	private HashMap<String, Host> hosts = new HashMap<String,Host>();// stores <dest_name, host>
 //	private int server_port = 12345; // this value is randomly choosed
 	private int server_port;
+	private static String logger = "logger";
+	private Socket logger_socket;
 	private static LogicClockService logic_clock;
 	private static VectorClockService vector_clock;
 	private static int clock_type;
@@ -50,6 +52,13 @@ public class MessagePasser {
 
 		logic_clock = new LogicClockService();
 		vector_clock = new VectorClockService();
+		
+		/* establish connection to logger*/
+		if( local_name.compareToIgnoreCase(logger) != 0 ){
+			InetAddress dst_ip = InetAddress.getByName(hosts.get(logger).get_ip());
+			int dst_port = Integer.parseInt(hosts.get(logger).get_port());
+			logger_socket = new Socket(dst_ip,dst_port);
+		}
 		
 		/* start one thread to listen */
 		server_port = Integer.parseInt(hosts.get(local_name).get_port());
@@ -88,7 +97,10 @@ public class MessagePasser {
 		if(result == 0){
 			// send the message
 			ObjectOutputStream out = new ObjectOutputStream(fd.getOutputStream());
+			ObjectOutputStream logger_out = new ObjectOutputStream(logger_socket.getOutputStream());
+			logger_out.writeObject(message);
 			out.writeObject(message);
+
 			System.out.println("[SEND direct]	"+message.get_dest()+":"+message.get_data().toString());
 			while( !send_queue.isEmpty()){
 				message = send_queue.poll();
@@ -112,6 +124,8 @@ public class MessagePasser {
 			}
 			else{
 				ObjectOutputStream out = new ObjectOutputStream(fd.getOutputStream());
+				ObjectOutputStream logger_out = new ObjectOutputStream(logger_socket.getOutputStream());
+				logger_out.writeObject(message);
 				out.writeObject(message);
 				System.out.println("[SEND delay(send)]	"+message.get_dest()+":"+message.get_data().toString());
 			}
@@ -121,10 +135,14 @@ public class MessagePasser {
 			ObjectOutputStream out = new ObjectOutputStream(fd.getOutputStream());
 			TimeStampedMessage dup = new TimeStampedMessage(message);
 			dup.set_duplicate(true);
+			ObjectOutputStream logger_out = new ObjectOutputStream(logger_socket.getOutputStream());
+			logger_out.writeObject(message);
 			out.writeObject(message);
 			System.out.println("[SEND dup1]	"+message.get_dest()+":"+message.get_data().toString());
 			out = new ObjectOutputStream(fd.getOutputStream());
+			logger_out = new ObjectOutputStream(logger_socket.getOutputStream());
 			out.writeObject(dup);
+			logger_out.writeObject(message);
 			System.out.println("[SEND dup2]	"+message.get_dest()+":"+message.get_data().toString());
 			while( !send_queue.isEmpty()){
 				message = send_queue.poll();

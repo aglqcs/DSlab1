@@ -16,8 +16,7 @@ public abstract class TimeStamp implements Serializable{
 	public abstract void set_localtime(TimeStamp t);
 		
 	/* compare to method:
-			if this < t return -1
-			if this = t return 0
+			if this <= t return 0
 			if this > t return 1
 	*/
 	public abstract int compare(TimeStamp t);
