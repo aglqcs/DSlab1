@@ -20,12 +20,20 @@ public class MessagePasser {
 	private String local_name;
 	private static ArrayList<Rule> send_rules;
 	private static ArrayList<Rule> recv_rules;
-	private static Queue<Message> send_queue = new LinkedList<Message>();
+	private static Queue<TimeStampedMessage> send_queue = new LinkedList<TimeStampedMessage>();
 	private HashMap<String, Socket> connections = new HashMap<String,Socket>(); // stores <dest_name, socket>
 	private HashMap<String, Host> hosts = new HashMap<String,Host>();// stores <dest_name, host>
 //	private int server_port = 12345; // this value is randomly choosed
 	private int server_port;
+	private static LogicClockService logic_clock;
+	private static VectorClockService vector_clock;
+	private static int clock_type;
 	
+	public static ClockService get_clock(){
+		if(clock_type == 1) return logic_clock;
+		else if(clock_type == 2) return vector_clock;
+		else return null;
+	}
 	public MessagePasser(String configuration_filename, String local_name) throws IOException{
 		this.configuration_file = configuration_filename;
 		this.local_name = local_name;
@@ -37,17 +45,22 @@ public class MessagePasser {
 			System.out.println("cannot init configuration exit");
 			return;
 		}
+	
+		clock_type = 1; // here set clock_type to 2 to switch to vector clock
+
+		logic_clock = new LogicClockService();
+		vector_clock = new VectorClockService();
 		
 		/* start one thread to listen */
 		server_port = Integer.parseInt(hosts.get(local_name).get_port());
 		IncomeHandler income = new IncomeHandler(server_port);
 		new Thread(income).start();
 	}
-	public void send(Message message) throws IOException{
+	public void send(Message to_send) throws IOException{
 		/* get info of this message and check send rules */
 		/* get a socket from connection list, if not exist, create another socket and send message*/
 		/* set message content like sequence number etc. */
-		String dest = message.get_dest();
+		String dest = to_send.get_dest();
 		Socket fd = null;
 		if( hosts.get(dest) == null){
 			System.out.println("DEBUG: error destination (" +dest+") quit send() now");
@@ -63,6 +76,10 @@ public class MessagePasser {
 			connections.put(dest, fd);
 		}
 		
+		/* before send this message, modify current clock by 1*/
+		get_clock().UpdateTimeStamp(null);
+		get_clock().getTimeStamp().print_clock();
+		TimeStampedMessage message = new TimeStampedMessage(to_send,get_clock().getTimeStamp());
 
 		// When user create message: should call set_seqnumber, set_dest,set_kind
 		message.set_source(local_name);
@@ -102,7 +119,7 @@ public class MessagePasser {
 		else if(result == 3){
 			//duplicate the message
 			ObjectOutputStream out = new ObjectOutputStream(fd.getOutputStream());
-			Message dup = new Message(message);
+			TimeStampedMessage dup = new TimeStampedMessage(message);
 			dup.set_duplicate(true);
 			out.writeObject(message);
 			System.out.println("[SEND dup1]	"+message.get_dest()+":"+message.get_data().toString());
@@ -118,6 +135,9 @@ public class MessagePasser {
 				//System.out.println("[SEND delay]	"+message.get_dest()+":"+message.get_data().toString());
 			}
 		}
+		else{
+			System.out.println("error check result = "+result);
+		}
 	}
 	public Message receive(){
 		Listener p = new Listener();
@@ -127,11 +147,17 @@ public class MessagePasser {
 		else{
 			/* need to clear the delay queue because we deliver a non-delayed message*/
 			Listener.clear_delay_queue();
-			return p.get_recv_queue().poll();
+			Message get = p.get_recv_queue().poll();
+			if( get instanceof TimeStampedMessage){
+				get_clock().UpdateTimeStamp(((TimeStampedMessage) get).get_timestamp());
+				get_clock().getTimeStamp().print_clock();
+			}
+			return get;
 		}
 	}
 	private boolean parse_configuration(String file_name) throws FileNotFoundException{
-		FileInputStream file = new FileInputStream(file_name);
+		//FileInputStream file = new FileInputStream(file_name);
+		FileInputStream file = new FileInputStream("/Users/shuo/Documents/eclipse/workspace/DSlab1/configuration.yaml");
 		Yaml yaml =new Yaml();
 		Map<String, Object>  buffer = (Map<String, Object>) yaml.load(file);
 		List<Map<String, Object>> host_list  = (List<Map<String, Object>>) buffer.get("configuration");

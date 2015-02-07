@@ -7,7 +7,7 @@ import java.util.Queue;
 
 public class Listener implements Runnable{
 	private static Queue<Message> recv_queue = new LinkedList<Message>();
-	private static Queue<Message> delay_queue = new LinkedList<Message>();
+	private static Queue<TimeStampedMessage> delay_queue = new LinkedList<TimeStampedMessage>();
 	private Socket socket;
 	
 	public Listener(){
@@ -22,10 +22,10 @@ public class Listener implements Runnable{
 		System.out.println("recv : " + recv_queue.size());
 		System.out.println("delay: " + delay_queue.size());
 	}
-	synchronized private void insert_recv_queue(Message recv){
+	synchronized private void insert_recv_queue(TimeStampedMessage recv){
 		recv_queue.add(recv);
 	}
-	synchronized private void insert_delay_queue(Message recv){
+	synchronized private void insert_delay_queue(TimeStampedMessage recv){
 		delay_queue.add(recv);
 	}
 	synchronized public static void clear_delay_queue(){
@@ -38,7 +38,7 @@ public class Listener implements Runnable{
 			while(true){
 				ObjectInputStream readin = new ObjectInputStream(socket.getInputStream()); //fixed but note: if put this outside the while loop it will just receive only 1 message why?
 				
-				Message recv = (Message)readin.readObject();
+				TimeStampedMessage recv = (TimeStampedMessage)readin.readObject();
 				/*		check if recv follows recv rule, and insert to recv queue
 				 * 			The insert process need to be synchronized!
 				 * */
@@ -59,7 +59,7 @@ public class Listener implements Runnable{
 				else if(result == 3){
 					System.out.println("[recv rule]: duplicate message");
 					//duplicate message
-					Message dup = new Message(recv);
+					TimeStampedMessage dup = new TimeStampedMessage(recv);
 					insert_recv_queue(recv);
 					insert_recv_queue(dup);
 				}

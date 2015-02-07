@@ -22,7 +22,9 @@ public class LogicTimeStamp extends TimeStamp{
 			return;
 		}
 	}
-
+	public void print_clock(){
+		System.out.println("current clock(logic) == "+local_time);
+	}
 	public int get_localtime() {
 		return this.local_time;
 	}

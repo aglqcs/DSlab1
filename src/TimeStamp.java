@@ -1,5 +1,7 @@
+import java.io.Serializable;
 
-public abstract class TimeStamp {
+
+public abstract class TimeStamp implements Serializable{
 	
 	/*	set_localtime method:
 	 *		for logic clock
@@ -19,5 +21,7 @@ public abstract class TimeStamp {
 			if this > t return 1
 	*/
 	public abstract int compare(TimeStamp t);
+	
+	public abstract void print_clock();
 	
 }

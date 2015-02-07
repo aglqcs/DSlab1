@@ -6,8 +6,10 @@ public class Userapplication implements Runnable{
 	// When user create message: should call set_seqnumber, set_dest,set_kind
 	// server port should choose to what?
 	public static MessagePasser mp;
+	private static LogicClockService logic_clock;
+	private static int clock_type;
+	
 	public Userapplication(){
-		
 	}
 	public static void main(String[] args) throws IOException{
 		//String configuration_addr = "/home/chenshuo/18842/lab0/configuration";
