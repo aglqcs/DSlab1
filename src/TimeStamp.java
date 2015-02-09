@@ -11,6 +11,10 @@ public abstract class TimeStamp implements Serializable{
 	 *				should call set_localtime(timestamp), set the max value between local time and timestamp
 	 *		
 	 *		for vector clock
+	 *			if there is a user event,
+	 *				call set_localtime(null), add 1 to local time within vector
+	 *			if message received,
+	 *				call set_localtime(timestamp), increment own local time, compare all items in local vector to items in other vector and set max value for all 
 	 *			TODO
 	 */
 	public abstract void set_localtime(TimeStamp t);

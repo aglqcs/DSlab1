@@ -10,6 +10,7 @@ public class Message implements Serializable{
 	private Object data;
 	private boolean duplicate = false;
 	private boolean send_delay = false;
+	private boolean log = false;
 	
 	public Message(String src,String dest, String kind, Object data){
 		this.src = src;
@@ -24,8 +25,15 @@ public class Message implements Serializable{
 		this.kind = recv.get_kind();
 		this.seq = recv.get_int_seq();
 		this.data = recv.get_data();
+		this.log = recv.get_log();
 		this.duplicate = recv.get_duplicate();
 		this.send_delay = recv.get_send_delay();
+	}
+	public void set_log(boolean b){
+		this.log = b;
+	}
+	public boolean get_log(){
+		return this.log;
 	}
 	public void set_source(String source){
 		this.src = source;

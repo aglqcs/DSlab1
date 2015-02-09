@@ -32,7 +32,8 @@ public class LogicTimeStamp extends TimeStamp{
 	public int compare(TimeStamp t) {
 		LogicTimeStamp temp = (LogicTimeStamp)t;
 		int other_time = temp.get_localtime();
-		if(local_time <= other_time) return 0;
+		if(local_time < other_time) return -1;
+		else if(local_time == other_time) return 0;
 		else return 1;
 	}
 

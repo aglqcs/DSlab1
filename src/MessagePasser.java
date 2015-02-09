@@ -1,11 +1,15 @@
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
+import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.ObjectOutputStream;
 import java.net.InetAddress;
 import java.net.ServerSocket;
 import java.net.Socket;
+import java.net.URL;
 import java.net.UnknownHostException;
+import java.nio.channels.Channels;
+import java.nio.channels.ReadableByteChannel;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.LinkedList;
@@ -17,25 +21,26 @@ import org.yaml.snakeyaml.Yaml;
 
 public class MessagePasser {
 	private String configuration_file;
-	private String local_name;
+	public static String local_name;
 	private static ArrayList<Rule> send_rules;
 	private static ArrayList<Rule> recv_rules;
 	private static Queue<TimeStampedMessage> send_queue = new LinkedList<TimeStampedMessage>();
 	private HashMap<String, Socket> connections = new HashMap<String,Socket>(); // stores <dest_name, socket>
-	private HashMap<String, Host> hosts = new HashMap<String,Host>();// stores <dest_name, host>
-//	private int server_port = 12345; // this value is randomly choosed
+	public static HashMap<String, Host> hosts = new HashMap<String,Host>();// stores <dest_name, host>
+//	private int server_port = 12345; // this value is randomly chosen
 	private int server_port;
 	private static String logger = "logger";
 	private Socket logger_socket;
 	private static LogicClockService logic_clock;
 	private static VectorClockService vector_clock;
-	private static int clock_type;
+	public static int clock_type;
 	
 	public static ClockService get_clock(){
 		if(clock_type == 1) return logic_clock;
 		else if(clock_type == 2) return vector_clock;
 		else return null;
 	}
+	
 	public MessagePasser(String configuration_filename, String local_name) throws IOException{
 		this.configuration_file = configuration_filename;
 		this.local_name = local_name;
@@ -48,7 +53,8 @@ public class MessagePasser {
 			return;
 		}
 	
-		clock_type = 1; // here set clock_type to 2 to switch to vector clock
+		/* choose logic or vector clock...UPDATE: Not needed, user inputs clock choice */
+//		clock_type = 2; // here set clock_type to 2 to switch to vector clock
 
 		logic_clock = new LogicClockService();
 		vector_clock = new VectorClockService();
@@ -175,40 +181,73 @@ public class MessagePasser {
 	}
 	private boolean parse_configuration(String file_name) throws FileNotFoundException{
 		//FileInputStream file = new FileInputStream(file_name);
-		FileInputStream file = new FileInputStream("/Users/shuo/Documents/eclipse/workspace/DSlab1/configuration.yaml");
+		String url="https://www.dropbox.com/s/s6cjvidezm11ibg/configuration.yaml?dl=1";
+		
+		//String url = file_name;
+		String new_file = "new_configuration.yaml";
+		
+		try {
+			URL download=new URL(url);
+			ReadableByteChannel rbc=Channels.newChannel(download.openStream());
+			FileOutputStream fileOut = new FileOutputStream(new_file);
+			fileOut.getChannel().transferFrom(rbc, 0, 1 << 24);
+			fileOut.flush();
+			fileOut.close();
+			rbc.close();
+		} catch(Exception e){ e.printStackTrace(); }		
+		
+		
+		FileInputStream file = new FileInputStream(new_file);
 		Yaml yaml =new Yaml();
 		Map<String, Object>  buffer = (Map<String, Object>) yaml.load(file);
 		List<Map<String, Object>> host_list  = (List<Map<String, Object>>) buffer.get("configuration");
 		List<Map<String, Object>> send_list  = (List<Map<String, Object>>) buffer.get("sendRules");
 		List<Map<String, Object>> recv_list  = (List<Map<String, Object>>) buffer.get("receiveRules");
-		for (Map<String, Object> iterator : host_list) {
-			Host host= new Host();
-			host.set_ip((String)iterator.get("ip"));
-			host.set_name((String)iterator.get("name"));
-			host.set_port((Integer)iterator.get("port"));
-			hosts.put(host.get_name(), host);
+		if(host_list == null || host_list.contains(null) || host_list.contains("")) {
+			System.out.println("ERROR: No hosts found!!");
+            /* TODO throw error, exit program */
 		}
-		for (Map<String, Object> iterator : send_list) {
-			Rule rule = new Rule();
-			rule.set_action((String)iterator.get("action"));
-			rule.set_dest((String)iterator.get("dest"));
-			rule.set_src((String)iterator.get("src"));
-			rule.set_kind((String)iterator.get("kind"));
-		    rule.set_duplicate((Boolean)iterator.get("duplicate"));
-			rule.set_seqNum((Integer)iterator.get("seqNum"));
-			send_rules.add(rule);
+		else {
+            for (Map<String, Object> iterator : host_list) {
+                    Host host= new Host();
+                    host.set_ip((String)iterator.get("ip"));
+                    host.set_name((String)iterator.get("name"));
+                    host.set_port((Integer)iterator.get("port"));
+                    hosts.put(host.get_name(), host);
+            }
+        }
+	    if(send_list == null || send_list.contains(null) || send_list.contains("")) {
+	    	System.out.println("Warning: No send rules found!!");
 		}
-		for (Map<String, Object> iterator : recv_list) {
-			Rule rule = new Rule();
-			rule.set_action((String)iterator.get("action"));
-			rule.set_dest((String)iterator.get("dest"));
-			rule.set_src((String)iterator.get("src"));
-			rule.set_kind((String)iterator.get("kind"));
-			rule.set_duplicate((Boolean)iterator.get("duplicate"));
-			rule.set_seqNum((Integer)iterator.get("seqNum"));
-			recv_rules.add(rule);
+		else {
+			for (Map<String, Object> iterator : send_list) {
+                Rule rule = new Rule();
+                rule.set_action((String)iterator.get("action"));
+                rule.set_dest((String)iterator.get("dest"));
+                rule.set_src((String)iterator.get("src"));
+                rule.set_kind((String)iterator.get("kind"));
+                rule.set_duplicate((Boolean)iterator.get("duplicate"));
+                rule.set_seqNum((Integer)iterator.get("seqNum"));
+                send_rules.add(rule);
+            }
+        }
+		if(recv_list == null || recv_list.contains(null) || recv_list.contains("")) {
+			System.out.println("Warning: No receive rules found!!");
+		}
+		else {
+			for (Map<String, Object> iterator : recv_list) {
+				Rule rule = new Rule();
+				rule.set_action((String)iterator.get("action"));
+				rule.set_dest((String)iterator.get("dest"));
+				rule.set_src((String)iterator.get("src"));
+				rule.set_kind((String)iterator.get("kind"));
+				rule.set_duplicate((Boolean)iterator.get("duplicate"));
+				rule.set_seqNum((Integer)iterator.get("seqNum"));
+				recv_rules.add(rule);
+			}
 		}
 		return true;
+		
 	}
 	public static int send_check(Message send){
 		for(Rule r:send_rules){
@@ -240,5 +279,12 @@ public class MessagePasser {
 		}
 		return 0;
 	}
-
+	
+	public int set_clockType(String type) {
+		if(type.equalsIgnoreCase("logic")) clock_type = 1;
+		else if(type.equalsIgnoreCase("vector")) clock_type = 2;
+		else System.out.println("Invalid clock type");
+		return clock_type;
+	}
+	
 }
